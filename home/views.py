@@ -11,8 +11,16 @@ import asyncio
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
-import uuid
+
 from .utils import generate_content
+
+import random
+import string
+
+def generate_id():
+    return ''.join(random.choices(string.ascii_letters + string.digits, k=16))
+
+# Then replace str(uuid.uuid4()) with generate_id()
 
 # Global dictionary to store tasks
 tasks = {}
@@ -29,7 +37,7 @@ async def generate(request):
             writing_style=data['writingStyle']
         )
         
-        task_id = str(uuid.uuid4())
+        task_id = generate_id()
         tasks[task_id] = {'status': 'processing', 'result': None}
         
         # Start the task without awaiting its completion
