@@ -3,12 +3,10 @@ from django.http import JsonResponse
 from .models import ContentRequest
 from .utils import generate_content
 import json
-from asgiref.sync import sync_to_async
 from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 
 def index(request):
-    return render(request,'index.html')
+    return render(request, 'index.html')
 
 def home(request):
     return render(request, 'home.html')
@@ -18,7 +16,8 @@ async def generate(request):
     if request.method == 'POST':
         data = json.loads(request.body)
         
-        content_request = await sync_to_async(ContentRequest.objects.create)(
+        # Create a ContentRequest instance without saving to the database
+        content_request = ContentRequest(
             category=data['category'],
             description=data['description'],
             platforms=','.join(data['platforms']),
