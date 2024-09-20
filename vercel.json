@@ -20,6 +20,5 @@
         "src": "/(.*)",
         "dest": "contentpro/wsgi.py"
       }
-    ],
-    "buildCommand": "./build.sh"  
+    ]
   }
