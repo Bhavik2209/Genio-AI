@@ -6,21 +6,12 @@ import json
 from asgiref.sync import sync_to_async
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
-
 import asyncio
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-import json
-
-from .utils import generate_content
-
 import random
 import string
 
 def generate_id():
     return ''.join(random.choices(string.ascii_letters + string.digits, k=16))
-
-# Then replace str(uuid.uuid4()) with generate_id()
 
 # Global dictionary to store tasks
 tasks = {}
@@ -70,16 +61,17 @@ async def check_task_status(request, task_id):
     return JsonResponse({'status': 'processing'})
 
 def index(request):
-    return render(request,'index.html')
+    return render(request, 'index.html')
 
 def home(request):
     return render(request, 'home.html')
 
+# Commented out old generate function
 # @csrf_exempt
 # async def generate(request):
 #     if request.method == 'POST':
 #         data = json.loads(request.body)
-        
+#         
 #         content_request = await sync_to_async(ContentRequest.objects.create)(
 #             category=data['category'],
 #             description=data['description'],
@@ -87,9 +79,9 @@ def home(request):
 #             word_count=data['wordCount'],
 #             writing_style=data['writingStyle']
 #         )
-        
+#         
 #         generated_content = await generate_content(content_request)
-        
+#         
 #         return JsonResponse({'content': generated_content})
-    
+#     
 #     return JsonResponse({'error': 'Invalid request method'}, status=400)

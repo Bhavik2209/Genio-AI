@@ -6,4 +6,3 @@ gunicorn
 Pillow
 python-dotenv
 requests
-uuid
