@@ -101,16 +101,33 @@ Ensure the content is tailored to the unique characteristics and audience expect
 
 
     try:
-        response = await model.generate_content_async(prompt)
+        response = await sync_to_async(model.generate_content)(prompt)
         return platform, response.text
     except Exception as e:
         return platform, f"Error generating content: {str(e)}"
 
+async def process_platform_queue(model, queue, content_request, results):
+    while queue:
+        platform = queue.popleft()
+        platform, content = await generate_content_for_platform(model, content_request, platform)
+        results[platform] = content
+
 async def generate_content(content_request):
-    model = genai.GenerativeModel('gemini-pro')
+    models = [
+        genai.GenerativeModel('gemini-pro'),
+        genai.GenerativeModel('gemini-pro'),
+        genai.GenerativeModel('gemini-pro')
+    ]
+    
     platforms = content_request.platforms.split(',')
+    platform_queue = deque(platforms)
+    results = {}
     
-    tasks = [generate_content_for_platform(model, content_request, platform) for platform in platforms]
-    results = await asyncio.gather(*tasks)
+    tasks = [
+        process_platform_queue(model, platform_queue, content_request, results)
+        for model in models
+    ]
     
-    return dict(results)
+    await asyncio.gather(*tasks)
+    
+    return results
