@@ -18,10 +18,10 @@ async def generate(request):
     if request.method == 'POST':
         data = json.loads(request.body)
         
-        content_request = await sync_to_async(ContentRequest.objects.create)(
+        content_request = ContentRequest(
             category=data['category'],
             description=data['description'],
-            platforms=','.join(data['platforms']),
+            platforms=data['platforms'],
             word_count=data['wordCount'],
             writing_style=data['writingStyle']
         )
