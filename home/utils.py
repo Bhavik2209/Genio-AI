@@ -119,12 +119,11 @@ async def generate_content(content_request):
         genai.GenerativeModel('gemini-pro')
     ]
     
-    platforms = content_request.platforms.split(',')
-    platform_queue = deque(platforms)
+    platform_queue = deque(content_request.platforms)
     results = {}
     
     tasks = [
-        process_platform_queue(model, platform_queue, content_request, results)
+        process_platform_queue(model, platform_queue.copy(), content_request, results)
         for model in models
     ]
     
