@@ -3,10 +3,9 @@ from django.http import JsonResponse
 from .models import ContentRequest
 from .utils import generate_content
 import json
-from asgiref.sync import sync_to_async
 from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
 import logging
+from django.core.serializers.json import DjangoJSONEncoder
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +14,13 @@ def index(request):
 
 def home(request):
     return render(request, 'home.html')
+
+class ContentEncoder(DjangoJSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, ContentRequest):
+            return str(obj)
+        return super().default(obj)
+
 
 @csrf_exempt
 async def generate(request):
@@ -36,14 +42,16 @@ async def generate(request):
             # Check for any errors in the generated content
             errors = [platform for platform, result in generated_content.items() if result['content'].startswith('Error')]
             
+            response_data = {'content': generated_content}
+            
             if errors:
                 error_message = f"Errors occurred for platforms: {', '.join(errors)}. Content generation failed for these platforms."
                 logger.error(error_message)
-                # Instead of returning an error, we'll return partial results
-                return JsonResponse({'content': generated_content, 'partial_error': error_message})
+                response_data['partial_error'] = error_message
+            else:
+                logger.info("Content generated successfully for all platforms")
             
-            logger.info("Content generated successfully for all platforms")
-            return JsonResponse({'content': generated_content})
+            return JsonResponse(response_data, encoder=ContentEncoder, safe=False)
         except json.JSONDecodeError as e:
             logger.error(f"JSON decode error: {str(e)}")
             return JsonResponse({'error': 'Invalid JSON in request body'}, status=400)
