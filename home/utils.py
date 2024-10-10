@@ -4,7 +4,9 @@ import asyncio
 from asgiref.sync import sync_to_async
 from collections import deque
 import time
+import logging
 
+logger = logging.getLogger(__name__)
 genai.configure(api_key=settings.GEMINI_API_KEY)
 
 async def generate_content_for_platform(model, content_request, platform):
@@ -101,18 +103,22 @@ Develop a submission that:
 Ensure the content is tailored to the unique characteristics and audience expectations of the specified platform while maintaining the requested style, word count, and alignment with the provided description.'''
 
 
-    try:
-        start_time = time.time()
-        response = await asyncio.wait_for(
-            sync_to_async(model.generate_content)(prompt),
-            timeout=30  # Set a timeout of 30 seconds
-        )
-        generation_time = time.time() - start_time
-        return platform, response.text, generation_time
-    except asyncio.TimeoutError:
-        return platform, "Error: Content generation timed out", 30
-    except Exception as e:
-        return platform, f"Error generating content: {str(e)}", 0
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            start_time = time.time()
+            response = await sync_to_async(model.generate_content)(prompt)
+            generation_time = time.time() - start_time
+            logger.info(f"Generated content for {platform} in {generation_time:.2f} seconds")
+            return platform, response.text, generation_time
+        except Exception as e:
+            logger.warning(f"Attempt {attempt + 1} failed for {platform}: {str(e)}")
+            if attempt == max_retries - 1:
+                logger.error(f"All attempts failed for {platform}: {str(e)}")
+                return platform, f"Error generating content after {max_retries} attempts: {str(e)}", 0
+            await asyncio.sleep(2 ** attempt)
+
+
 
 async def process_platform_queue(model, queue, content_request, results):
     while queue:
@@ -121,20 +127,11 @@ async def process_platform_queue(model, queue, content_request, results):
         results[platform] = {"content": content, "generation_time": generation_time}
 
 async def generate_content(content_request):
-    models = [
-        genai.GenerativeModel('gemini-pro'),
-        genai.GenerativeModel('gemini-pro'),
-        genai.GenerativeModel('gemini-pro')
-    ]
-    
-    platform_queue = deque(content_request.platforms)
+    model = genai.GenerativeModel('gemini-pro')
     results = {}
     
-    tasks = [
-        process_platform_queue(model, platform_queue.copy(), content_request, results)
-        for model in models
-    ]
-    
-    await asyncio.gather(*tasks)
+    for platform in content_request.platforms:
+        platform, content, generation_time = await generate_content_for_platform(model, content_request, platform)
+        results[platform] = {"content": content, "generation_time": generation_time}
     
     return results
