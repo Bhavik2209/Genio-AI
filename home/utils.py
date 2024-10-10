@@ -1,14 +1,13 @@
-import google.generativeai as genai
+import aiohttp
 from django.conf import settings
 import asyncio
-from asgiref.sync import sync_to_async
 from collections import deque
-import aiohttp
+import json
 
 HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
 HUGGINGFACE_API_KEY = settings.HUGGINGFACE_API_KEY
 
-async def generate_content_for_platform(model, content_request, platform):
+async def generate_content_for_platform(content_request, platform):
     prompt = f''' # Enhanced Content Generation Prompt
 
 Create {platform}-specific content that aligns with the following parameters:
@@ -100,7 +99,6 @@ Develop a submission that:
 - Avoids self-promotion unless it's truly noteworthy
 
 Ensure the content is tailored to the unique characteristics and audience expectations of the specified platform while maintaining the requested style, word count, and alignment with the provided description.'''
-
 
     headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
     payload = {
