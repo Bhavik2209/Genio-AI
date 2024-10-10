@@ -4,6 +4,7 @@ import asyncio
 from collections import deque
 import json
 import logging
+from asgiref.sync import sync_to_async
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +145,11 @@ async def generate_content(content_request):
     
     try:
         tasks = [process_platform_queue(platform_queue.copy(), content_request, results, semaphore)]
-        await asyncio.gather(*tasks)
+        # Add a timeout of 25 seconds (adjust as needed)
+        await asyncio.wait_for(asyncio.gather(*tasks), timeout=25)
+    except asyncio.TimeoutError:
+        logger.error("Content generation timed out")
+        results['error'] = "Content generation timed out. Please try again or generate for fewer platforms."
     except Exception as e:
         logger.exception(f"Exception in generate_content: {str(e)}")
         results['error'] = f"An error occurred while generating content: {str(e)}"
