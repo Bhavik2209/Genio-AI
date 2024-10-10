@@ -7,4 +7,4 @@ Pillow
 python-dotenv
 requests
 openai
-aiohttp==3.8.5
+aiohttp
