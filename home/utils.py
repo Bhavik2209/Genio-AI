@@ -3,6 +3,9 @@ from django.conf import settings
 import asyncio
 from collections import deque
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
 HUGGINGFACE_API_KEY = settings.HUGGINGFACE_API_KEY
@@ -113,16 +116,24 @@ Ensure the content is tailored to the unique characteristics and audience expect
                     result = await response.json()
                     return platform, result[0]['generated_text'].strip()
                 else:
-                    return platform, f"Error: API returned status code {response.status}"
+                    error_message = f"Error: API returned status code {response.status}"
+                    logger.error(f"Hugging Face API error: {error_message}")
+                    return platform, error_message
         except Exception as e:
-            return platform, f"Error generating content: {str(e)}"
+            error_message = f"Error generating content: {str(e)}"
+            logger.exception(f"Exception in generate_content_for_platform: {error_message}")
+            return platform, error_message
 
 async def process_platform_queue(queue, content_request, results, semaphore):
     while queue:
         platform = queue.popleft()
         async with semaphore:
-            platform, content = await generate_content_for_platform(content_request, platform)
-        results[platform] = content
+            try:
+                platform, content = await generate_content_for_platform(content_request, platform)
+                results[platform] = content
+            except Exception as e:
+                logger.exception(f"Exception in process_platform_queue for platform {platform}: {str(e)}")
+                results[platform] = f"Error processing platform {platform}: {str(e)}"
 
 async def generate_content(content_request):
     platform_queue = deque(content_request.platforms)
@@ -131,8 +142,11 @@ async def generate_content(content_request):
     # Limit concurrent requests
     semaphore = asyncio.Semaphore(5)  # Adjust this value based on your needs and API limits
     
-    tasks = [process_platform_queue(platform_queue.copy(), content_request, results, semaphore)]
-    
-    await asyncio.gather(*tasks)
+    try:
+        tasks = [process_platform_queue(platform_queue.copy(), content_request, results, semaphore)]
+        await asyncio.gather(*tasks)
+    except Exception as e:
+        logger.exception(f"Exception in generate_content: {str(e)}")
+        results['error'] = f"An error occurred while generating content: {str(e)}"
     
     return results
