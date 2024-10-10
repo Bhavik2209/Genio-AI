@@ -3,6 +3,7 @@ from django.conf import settings
 import asyncio
 from asgiref.sync import sync_to_async
 from collections import deque
+import time
 
 genai.configure(api_key=settings.GEMINI_API_KEY)
 
@@ -101,16 +102,23 @@ Ensure the content is tailored to the unique characteristics and audience expect
 
 
     try:
-        response = await sync_to_async(model.generate_content)(prompt)
-        return platform, response.text
+        start_time = time.time()
+        response = await asyncio.wait_for(
+            sync_to_async(model.generate_content)(prompt),
+            timeout=30  # Set a timeout of 30 seconds
+        )
+        generation_time = time.time() - start_time
+        return platform, response.text, generation_time
+    except asyncio.TimeoutError:
+        return platform, "Error: Content generation timed out", 30
     except Exception as e:
-        return platform, f"Error generating content: {str(e)}"
+        return platform, f"Error generating content: {str(e)}", 0
 
 async def process_platform_queue(model, queue, content_request, results):
     while queue:
         platform = queue.popleft()
-        platform, content = await generate_content_for_platform(model, content_request, platform)
-        results[platform] = content
+        platform, content, generation_time = await generate_content_for_platform(model, content_request, platform)
+        results[platform] = {"content": content, "generation_time": generation_time}
 
 async def generate_content(content_request):
     models = [
