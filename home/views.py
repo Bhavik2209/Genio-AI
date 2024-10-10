@@ -18,12 +18,22 @@ def home(request):
     return render(request, 'home.html')
 
 
+def camel_to_snake(data):
+    return {
+        'category': data.get('category'),
+        'description': data.get('description'),
+        'platforms': data.get('platforms'),
+        'word_count': data.get('wordCount'),  # Convert camelCase to snake_case
+        'writing_style': data.get('writingStyle')  # Convert camelCase to snake_case
+    }
+
 @csrf_exempt
 def generate(request):
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            content_request = ContentRequest(**data)
+            converted_data = camel_to_snake(data)
+            content_request = ContentRequest(**converted_data)
             generated_content = async_to_sync(generate_content)(content_request)
             
             if 'error' in generated_content:
