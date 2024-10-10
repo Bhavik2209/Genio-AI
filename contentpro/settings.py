@@ -137,6 +137,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Access the GEMINI_API_KEY from the .env file
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+HUGGINGFACE_API_KEY = os.getenv('HUGGINGFACE_API_KEY')
 
 
 SECURE_BROWSER_XSS_FILTER = True

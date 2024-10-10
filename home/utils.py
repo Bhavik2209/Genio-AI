@@ -3,11 +3,10 @@ from django.conf import settings
 import asyncio
 from asgiref.sync import sync_to_async
 from collections import deque
-import time
-import logging
+import aiohttp
 
-logger = logging.getLogger(__name__)
-genai.configure(api_key=settings.GEMINI_API_KEY)
+HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/facebook/bart-large-cnn"
+HUGGINGFACE_API_KEY = settings.HUGGINGFACE_API_KEY
 
 async def generate_content_for_platform(model, content_request, platform):
     prompt = f''' # Enhanced Content Generation Prompt
@@ -103,35 +102,39 @@ Develop a submission that:
 Ensure the content is tailored to the unique characteristics and audience expectations of the specified platform while maintaining the requested style, word count, and alignment with the provided description.'''
 
 
-    max_retries = 3
-    for attempt in range(max_retries):
+    headers = {"Authorization": f"Bearer {HUGGINGFACE_API_KEY}"}
+    payload = {
+        "inputs": prompt,
+        "parameters": {"max_length": 1000, "min_length": 50}
+    }
+
+    async with aiohttp.ClientSession() as session:
         try:
-            start_time = time.time()
-            response = await sync_to_async(model.generate_content)(prompt)
-            generation_time = time.time() - start_time
-            logger.info(f"Generated content for {platform} in {generation_time:.2f} seconds")
-            return platform, response.text, generation_time
+            async with session.post(HUGGINGFACE_API_URL, headers=headers, json=payload) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return platform, result[0]['generated_text'].strip()
+                else:
+                    return platform, f"Error: API returned status code {response.status}"
         except Exception as e:
-            logger.warning(f"Attempt {attempt + 1} failed for {platform}: {str(e)}")
-            if attempt == max_retries - 1:
-                logger.error(f"All attempts failed for {platform}: {str(e)}")
-                return platform, f"Error generating content after {max_retries} attempts: {str(e)}", 0
-            await asyncio.sleep(2 ** attempt)
+            return platform, f"Error generating content: {str(e)}"
 
-
-
-async def process_platform_queue(model, queue, content_request, results):
+async def process_platform_queue(queue, content_request, results, semaphore):
     while queue:
         platform = queue.popleft()
-        platform, content, generation_time = await generate_content_for_platform(model, content_request, platform)
-        results[platform] = {"content": content, "generation_time": generation_time}
+        async with semaphore:
+            platform, content = await generate_content_for_platform(content_request, platform)
+        results[platform] = content
 
 async def generate_content(content_request):
-    model = genai.GenerativeModel('gemini-pro')
+    platform_queue = deque(content_request.platforms)
     results = {}
     
-    for platform in content_request.platforms:
-        platform, content, generation_time = await generate_content_for_platform(model, content_request, platform)
-        results[platform] = {"content": content, "generation_time": generation_time}
+    # Limit concurrent requests
+    semaphore = asyncio.Semaphore(5)  # Adjust this value based on your needs and API limits
+    
+    tasks = [process_platform_queue(platform_queue.copy(), content_request, results, semaphore)]
+    
+    await asyncio.gather(*tasks)
     
     return results

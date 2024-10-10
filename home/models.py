@@ -31,13 +31,4 @@ class ContentRequest:
         self.writing_style = writing_style
 
     def __str__(self):
-        return f"{self.category} - {', '.join(self.platforms)}"
-
-    def to_dict(self):
-        return {
-            'category': self.category,
-            'description': self.description,
-            'platforms': self.platforms,
-            'word_count': self.word_count,
-            'writing_style': self.writing_style
-        }
+        return f"{self.category} - {self.platforms}"
